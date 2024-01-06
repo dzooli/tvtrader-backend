@@ -163,3 +163,5 @@ cython_debug/
 reports/
 
 *.code-workspace
+.idea
+

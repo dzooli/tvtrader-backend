@@ -3,7 +3,7 @@ allure-pytest-bdd==2.11.1
 allure-python-commons==2.11.1
 attrs==22.1.0
 autopep8==2.0.0
-bandit==1.7.4
+bandit==1.7.7
 black==22.10.0
 certifi==2023.7.22
 charset-normalizer==2.1.1

@@ -13,12 +13,12 @@ class AppConfig(Config):
     APPNAME = "TradingView Trader"
     PORT = 8089
     KEEP_ALIVE_TIMEOUT = 60
-    ERROR_FORMAT = 'json'
+    ERROR_FORMAT = "json"
     API_TITLE = "TvTrader API"
     API_VERSION = "1.0.0"
     API_DESCRIPTION = "TradingView alert helper API"
     API_CONTACT_EMAIL = "zoltan.dzooli.fabian@gmail.com"
-    API_SECURITY = [{"BasicAuth": [], "ApiKeyAuth": []}]
+    API_SECURITY: list = [{"BasicAuth": [], "ApiKeyAuth": []}]
     API_SECURITY_DEFINITIONS = {
         "BasicAuth": {"type": "basic"},
         "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-KEY"},

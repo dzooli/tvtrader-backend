@@ -1,8 +1,8 @@
 from os import getenv
-from sanic.config import Config
+from sanic.config import Config, DescriptorMeta
 
 
-class AppConfig(Config):
+class AppConfig(Config, metaclass=DescriptorMeta):  # type: ignore[misc]
     # User configurable values
     DEV = getenv("TVTRADER_DEV", "True") == "True"
     VERBOSE = getenv("TVTRADER_VERBOSE", "True") == "True"

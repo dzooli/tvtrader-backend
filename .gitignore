@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+!backend/tests/lib/
 lib64/
 parts/
 sdist/
@@ -164,4 +164,8 @@ reports/
 
 *.code-workspace
 .idea
+.run
 
+archive/
+pytest_html_report.html
+output.json

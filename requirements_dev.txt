@@ -10,10 +10,9 @@ pytest-sugar
 pytest-agent
 pytest-asyncio
 allure-pytest
-allure-pytest-bdd==2.11.1
-allure-python-commons==2.11.1
+allure-pytest-bdd
+allure-python-commons
 sanic-testing
-
 mypy
 mypy-extensions
 flake8

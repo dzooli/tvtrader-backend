@@ -4,43 +4,52 @@
     File:       server.py
     Author:     Zoltan Fabian <zoltan.dzooli.fabian@gmail.com>
 """
+
 from __future__ import annotations
-from multiprocessing import Queue
-import time
+
 import socket
+import time
+from multiprocessing import Queue
+
 import attrs
-
-from sanic.worker.manager import WorkerManager
+from sanic import Sanic, Request, SanicException, Websocket
 from sanic.log import logger
-from sanic_ext import validate, Config
+from sanic.worker.manager import WorkerManager
+from sanic_ext import validate, Config, openapi as doc, CountedRequest
 from sanic_ext.exceptions import ValidationError
-from sanic_openapi import openapi2_blueprint, doc
-from sanic.response import json
-from sanic import Sanic, Request, HTTPResponse
+from sanic_ext.extensions.openapi.definitions import RequestBody
 
-from src.config import AppConfig
-from src.app.context import TvTraderContext
-from src.schemas.alerts import TradingViewAlert, TradingViewAlertSchema
-from src.schemas.responses import SuccessResponseSchema, ErrorResponseSchema
 import src.actions.carbon as actions_carbon
 import src.actions.websocket as actions_ws
-import src.app.helpers as helpers
-from src.app.patches import patch_all
+from src.app import helpers
+from src.app.context import TvTraderContext
+from src.config import AppConfig
+from src.schemas.alerts import TradingViewAlert, TradingViewAlertSchema
+from src.schemas.responses import (
+    SuccessResponseSchema,
+    ErrorResponseSchema,
+    SuccessResponse,
+    ErrorResponse,
+)
 
 
 def create_app() -> Sanic:
-    wsclients: set = set()
+    """Create the application instance."""
+
+    ws_clients: set = set()
     carbon_connection = None
     WorkerManager.THRESHOLD = 300
 
-    patch_all()
-
-    appctx = TvTraderContext()
-    appctx.carbon_sock = carbon_connection
-    app = Sanic("TvTrader", config=AppConfig(), configure_logging=True, ctx=appctx)
-    app.extend(
-        config=Config(oas=False, health=True, health_endpoint=True, logging=True)
+    app_context = TvTraderContext()
+    app_context.carbon_sock = carbon_connection
+    app = Sanic(
+        "TvTrader",
+        config=AppConfig(),
+        configure_logging=True,
+        ctx=app_context,
+        request_class=CountedRequest,
     )
+    app.extend(config=Config(oas=True, health=True, health_endpoint=True, logging=True))
 
     try:
         carbon_connection = socket.create_connection(
@@ -49,104 +58,12 @@ def create_app() -> Sanic:
     except ConnectionRefusedError:
         logger.error("Carbon connection is not available.")
 
-    app.blueprint(openapi2_blueprint)
+    app.enable_websocket(True)
 
-    @app.main_process_start
-    async def main_process_start(app):
-        app.shared_ctx.logger_queue = Queue()
-
-    @app.exception(ValidationError, ValueError)
-    def handle_validation_errors(request: Request, exception) -> HTTPResponse:
-        """
-        Handle validation errors with a proper JSON response.
-
-        Args:
-            request (Request): The incoming request
-            exception (_type_): Validation exception to handle.
-
-        Returns:
-            HTTPResponse: _description_
-        """
-        return json(
-            body={"description": str(exception), "message": "ERROR", "status": 400},
-            status=400,
-        )
-
-    @app.route("/", methods=["GET"])
-    @doc.tag("Backend")
-    @doc.summary("Healthcheck endpoint")
-    @doc.response(200, SuccessResponseSchema, description="Success")
-    async def check(request: Request) -> HTTPResponse:
-        """
-        Healthcheck endpoint.
-
-        Args:
-            request (Request): The HTTP request
-
-        Returns:
-            HTTPResponse: The health status
-        """
-        return json({"status": 200, "message": "HEALTHY " + app.config.APPNAME})
-
-    @app.route("/alert", methods=["POST"])
-    @doc.tag("Frontend")
-    @doc.operation("frontendAlert")
-    @doc.consumes(TradingViewAlertSchema, location="body")
-    @doc.response(200, SuccessResponseSchema, description="Success")
-    @doc.response(
-        400,
-        ErrorResponseSchema,
-        description="Error. See 'description' property in the response",
-    )
-    @validate(json=TradingViewAlert)
-    async def alert_post(request, body: TradingViewAlert):
-        """
-        Alert POST endpoint to proxy the alerts to the frontend application.
-        """
-        jsondata = attrs.asdict(body)
-        helpers.add_timezone_info(jsondata, Sanic.get_app())
-        helpers.format_json_input(jsondata)
-        await actions_ws.send_metric(jsondata, wsclients)
-        return json({"status": 200, "message": "OK"})
-
-    @app.route("/carbon-alert", methods=["POST"])
-    @doc.tag("Backend")
-    @doc.operation("carbonAlert")
-    @doc.consumes(TradingViewAlertSchema, location="body")
-    @doc.response(200, SuccessResponseSchema, description="Success")
-    @doc.response(
-        400,
-        ErrorResponseSchema,
-        description="Error. See 'description' property in the response",
-    )
-    @validate(json=TradingViewAlert)
-    async def carbon_alert_post(request, body: TradingViewAlert):
-        """
-        Alert POST endpoint to forward the alerts to a Carbon server.
-        """
-        jsondata = attrs.asdict(body)
-        helpers.add_timezone_info(jsondata, Sanic.get_app())
-        helpers.format_json_input(jsondata)
-        # Message meaning conversion to numbers
-        config = Sanic.get_app().config
-        value = (
-            config.CARBON_SELL_VALUE
-            if jsondata["direction"] == "SELL"
-            else config.CARBON_BUY_VALUE
-        )
-        timediff = int(time.time()) - (jsondata["timestamp"] + jsondata["utcoffset"])
-        if timediff > (config.GR_TIMEOUT * 60):
-            value = int((config.CARBON_SELL_VALUE + config.CARBON_BUY_VALUE) / 2)
-        # Message prepare
-        msg = f'strat.{jsondata["name"]}.{jsondata["interval"]}.{jsondata["symbol"]} \
-            {value} {jsondata["timestamp"]}\n'
-        await actions_carbon.send_metric(msg)
-        return json({"status": 200, "message": "OK"})
-
-    @doc.exclude(True)
-    @doc.route(summary="Websocket endpoint")
+    @doc.no_autodoc
+    @doc.exclude()
     @app.websocket("/wsalerts")
-    async def feed(request, ws):
+    async def feed(request: Request, ws: Websocket):
         """
         Websocket endpoint.
 
@@ -154,7 +71,7 @@ def create_app() -> Sanic:
         all the alerts received by the server via '/alert' POST endpoint.
         """
         logger.debug("ws request: %s", str(request))
-        wsclients.add(ws)
+        ws_clients.add(ws)
         while True:
             data = None
             data = await ws.recv()
@@ -162,8 +79,12 @@ def create_app() -> Sanic:
                 logger.debug("ws data received: %s", str(data))
                 await ws.send(data)
 
+    @app.main_process_start
+    async def main_process_start(application):
+        application.shared_ctx.logger_queue = Queue()
+
     @app.after_server_stop
-    def teardown(app):
+    def teardown(application):
         """
         Application shutdown
 
@@ -173,7 +94,81 @@ def create_app() -> Sanic:
         sock = Sanic.get_app().ctx.carbon_sock
         try:
             del sock
-        except Exception:
+        except (AttributeError, SanicException):
             logger.error("Carbon connection close failed!")
+
+    @app.exception(ValidationError, ValueError)
+    def handle_validation_errors(request: Request, exception) -> ErrorResponse:
+        """Handle validation errors with a proper JSON response."""
+        return ErrorResponse(str(exception))
+
+    @app.route("/", methods=["GET"])
+    @doc.tag("Backend")
+    @doc.response(
+        200, {"application/json": SuccessResponseSchema}, description="Success"
+    )
+    async def check(request: CountedRequest) -> SuccessResponse:
+        """Healthcheck endpoint."""
+        return SuccessResponse(f"HEALTHY {app.config.APPNAME}")
+
+    @app.route("/alert", methods=["POST"])
+    @doc.definition(tag="Frontend", operation="frontendAlert")
+    @doc.body(RequestBody({"application/json": TradingViewAlertSchema}, required=True))
+    @doc.response(
+        200, {"application/json": SuccessResponseSchema}, description="Success"
+    )
+    @doc.response(
+        400,
+        {"application/json": ErrorResponseSchema},
+        description="Error. See 'description' property in the response",
+    )
+    @validate(json=TradingViewAlert)
+    async def alert_post(
+        request: CountedRequest, body: TradingViewAlert
+    ) -> SuccessResponse | ErrorResponse:
+        """Alert POST endpoint to proxy the alerts to the frontend application or a websocket client."""
+        json_data = attrs.asdict(body)
+        helpers.add_timezone_info(json_data, Sanic.get_app())
+        helpers.format_json_input(json_data)
+        await actions_ws.send_metric(json_data, ws_clients)
+        return SuccessResponse()
+
+    @app.route("/carbon-alert", methods=["POST"])
+    @doc.definition(
+        tag="Backend",
+        operation="carbonAlert",
+    )
+    @doc.body(RequestBody({"application/json": TradingViewAlertSchema}, required=True))
+    @doc.response(200, SuccessResponseSchema, description="Success")
+    @doc.response(
+        400,
+        ErrorResponseSchema,
+        description="Error. See 'description' property in the response",
+    )
+    @validate(json=TradingViewAlert)
+    async def carbon_alert_post(request: CountedRequest, body: TradingViewAlert):
+        """Alert POST endpoint to forward the alerts to a Carbon server."""
+        json_data = attrs.asdict(body)
+        helpers.add_timezone_info(json_data, Sanic.get_app())
+        helpers.format_json_input(json_data)
+        # Message meaning conversion to numbers
+        config = Sanic.get_app().config
+        value = (
+            config.CARBON_SELL_VALUE
+            if json_data["direction"] == "SELL"
+            else config.CARBON_BUY_VALUE
+        )
+        time_diff = int(time.time()) - (json_data["timestamp"] + json_data["utcoffset"])
+        if time_diff > (config.GR_TIMEOUT * 60):
+            value = int((config.CARBON_SELL_VALUE + config.CARBON_BUY_VALUE) / 2)
+        # Message prepare
+        msg = f'strat.{json_data["name"]}.{json_data["interval"]}.{json_data["symbol"]} \
+            {value} {json_data["timestamp"]}\n'
+        await actions_carbon.send_metric(msg)
+        return SuccessResponse()
+
+    # @doc.no_autodoc
+    # @doc.exclude
+    # @app.websocket("/wsalerts")
 
     return app

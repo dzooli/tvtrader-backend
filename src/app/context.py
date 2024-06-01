@@ -4,8 +4,8 @@
     File:       context.py
     Author:     Zoltan Fabian <zoltan.dzooli.fabian>
 """
+
 import socket
-import typing
 from types import SimpleNamespace
 
 
@@ -13,9 +13,6 @@ class TvTraderContext(SimpleNamespace):
     """Application context class"""
 
     _carbon_sock: socket.socket | None = None
-
-    def __init__(self, **kwargs: typing.Any) -> None:
-        super().__init__(**kwargs)
 
     @property
     def carbon_sock(self) -> socket.socket | None:

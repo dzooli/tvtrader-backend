@@ -1,7 +1,9 @@
+"""Alert classes and schema definitions."""
+
 from __future__ import annotations
 import re
 from attrs import field, define, validators
-from sanic_openapi import doc
+from sanic_ext import openapi as doc
 
 
 @define
@@ -22,10 +24,12 @@ class TradingViewAlertSchema:
     name = doc.String(description="Strategy name", required=True)
     symbol = doc.String(description="Symbol for the alert", required=True)
     interval = doc.Integer(
-        description="Strategy operational timeframe, minimum value 1", required=True
+        description="Strategy operational timeframe, minimum value 1",
+        required=True,
+        example=15,
     )
     direction = doc.String(
-        choices=[
+        enum=[
             "BUY",
             "buy",
             "SELL",
@@ -36,8 +40,14 @@ class TradingViewAlertSchema:
         description="Strategy direction",
         required=True,
     )
-    price = doc.Float(description="The current price of the security", required=True)
+    price = doc.Float(
+        description="The current price of the security",
+        required=True,
+        default=1.0,
+        example=1.1,
+    )
     timestamp = doc.DateTime(
         description="Timestamp of the alert in UTC time without milliseconds",
         required=True,
+        example="2024-06-01T03:16:17Z",
     )

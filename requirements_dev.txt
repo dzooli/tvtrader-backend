@@ -1,4 +1,4 @@
-pytest
+pytest==8.2.1
 pytest-bdd
 pytest-click
 pytest-cov
@@ -9,11 +9,7 @@ pytest-mock
 pytest-sugar
 pytest-agent
 pytest-asyncio
-allure-pytest
-allure-pytest-bdd==2.11.1
-allure-python-commons==2.11.1
 sanic-testing
-
 mypy
 mypy-extensions
 flake8

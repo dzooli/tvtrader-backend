@@ -24,13 +24,14 @@ class AppConfig(Config, metaclass=DescriptorMeta):  # type: ignore[misc]
         "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-KEY"},
     }
     OAS_IGNORE_OPTIONS = True
+    OAS_UI_DEFAULT = "swagger"
     CORS_ORIGINS = "http://localhost:8080"
     CORS_AUTOMATIC_OPTIONS = True
     CORS_METHODS = ["GET", "POST", "OPTIONS"]
     SWAGGER_UI_CONFIGURATION = {
         "apisSorter": "alpha",
-        "jsonEditor": "false",
-        "tryItOutEnabled": "false",
+        "jsonEditor": True,
+        "tryItOutEnabled": True,
         "operationsSorter": "alpha",
         "docExpansion": "list",
         "displayRequestDuration": True,

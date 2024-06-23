@@ -1,9 +1,12 @@
 """Alert classes and schema definitions."""
 
 from __future__ import annotations
+
 import re
+
 from attrs import field, define, validators
 from sanic_ext import openapi as doc
+from sanic_ext.extensions.openapi.definitions import RequestBody
 
 
 @define
@@ -51,3 +54,11 @@ class TradingViewAlertSchema:
         required=True,
         example="2024-06-01T03:16:17Z",
     )
+
+    @classmethod
+    def openapi_in_request(cls):
+        return {
+            "content": RequestBody(
+                content={"application/json": TradingViewAlertSchema}, required=True
+            )
+        }

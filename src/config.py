@@ -1,4 +1,5 @@
 from os import getenv
+
 from sanic.config import Config, DescriptorMeta
 
 
@@ -31,7 +32,7 @@ class AppConfig(Config, metaclass=DescriptorMeta):  # type: ignore[misc]
     SWAGGER_UI_CONFIGURATION = {
         "apisSorter": "alpha",
         "jsonEditor": True,
-        "tryItOutEnabled": True,
+        "tryItOutEnabled": False,
         "operationsSorter": "alpha",
         "docExpansion": "list",
         "displayRequestDuration": True,

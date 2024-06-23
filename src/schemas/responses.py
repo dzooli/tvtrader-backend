@@ -1,24 +1,46 @@
-"""Response classes and schemas."""
+"""Response models and schemas."""
 
+from enum import Enum
+
+from attrs import define, field, validators, asdict
+from sanic import json
 from sanic_ext import openapi as doc
-from sanic.response import JSONResponse
 
 
-class CommonJSONResponse(JSONResponse):
-    def __init__(self, message: str | None = None, status: int | None = None):
-        super().__init__()
-        self.set_body(message or "")
-        self.status = status or 200
+class ResponseStatus(Enum):
+    OK = 0
+    SUCCESS = 1
+    ERROR = 2
+    VALIDATION_ERROR = 3
 
 
-class ErrorResponse(CommonJSONResponse):
-    def __init__(self, message: str | None = None, status: int | None = None):
-        super().__init__(message or "Bad Request", status or 400)
+@define(kw_only=True)
+class CommonResponse:
+    status: int = field(default=200, validator=[validators.ge(100)])
+    message: str = ResponseStatus.OK.name
+    description: str = ""
+
+    def json(self):
+        return json(asdict(self))
 
 
-class SuccessResponse(CommonJSONResponse):
-    def __init__(self, message: str | None = None, status: int | None = None):
-        super().__init__(message or "OK", status or 200)
+@define
+class SuccessResponse(CommonResponse):
+    pass
+
+
+class SuccessResponseSchema:
+    description = doc.String(description="Optional response description", nullable=True)
+    status = doc.Integer(description="Status code", required=True)
+    message = doc.String(description="Response message of the call", nullable=True)
+
+    @classmethod
+    def openapi(cls):
+        return {
+            "status": 200,
+            "content": {"application/json": SuccessResponseSchema},
+            "description": "Success",
+        }
 
 
 class ErrorResponseSchema:
@@ -26,7 +48,10 @@ class ErrorResponseSchema:
     status = doc.Integer(description="Status code", required=True)
     message = doc.String(description="Details of the error message", nullable=True)
 
-
-class SuccessResponseSchema:
-    status = doc.Integer(description="Response code", required=True)
-    message = doc.String(description="Response message of the call", nullable=True)
+    @classmethod
+    def openapi(cls):
+        return {
+            "status": 400,
+            "content": {"application/json": ErrorResponseSchema},
+            "description": "Error. See 'description' property in the response",
+        }

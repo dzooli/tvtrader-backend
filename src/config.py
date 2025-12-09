@@ -1,9 +1,8 @@
 from os import getenv
+from sanic.config import Config
 
-from sanic.config import Config, DescriptorMeta
 
-
-class AppConfig(Config, metaclass=DescriptorMeta):  # type: ignore[misc]
+class AppConfig(Config):
     # User configurable values
     DEV = getenv("TVTRADER_DEV", "True") == "True"
     VERBOSE = getenv("TVTRADER_VERBOSE", "True") == "True"
@@ -15,24 +14,21 @@ class AppConfig(Config, metaclass=DescriptorMeta):  # type: ignore[misc]
     PORT = 8089
     KEEP_ALIVE_TIMEOUT = 60
     ERROR_FORMAT = "json"
-    API_TITLE = "TvTrader API"
-    API_VERSION = "1.0.0"
-    API_DESCRIPTION = "TradingView alert helper API"
-    API_CONTACT_EMAIL = "zoltan.dzooli.fabian@gmail.com"
-    API_SECURITY: list = [{"BasicAuth": [], "ApiKeyAuth": []}]
+    API_SECURITY = [{"BasicAuth": [], "ApiKeyAuth": []}]
     API_SECURITY_DEFINITIONS = {
         "BasicAuth": {"type": "basic"},
         "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-KEY"},
     }
     OAS_IGNORE_OPTIONS = True
     OAS_UI_DEFAULT = "swagger"
+    CORS_ALWAYS_SEND = True
     CORS_ORIGINS = "http://localhost:8080"
     CORS_AUTOMATIC_OPTIONS = True
-    CORS_METHODS = ["GET", "POST", "OPTIONS"]
+    CORS_METHODS = ["GET", "POST", "OPTIONS", "HEAD"]
     SWAGGER_UI_CONFIGURATION = {
         "apisSorter": "alpha",
-        "jsonEditor": True,
-        "tryItOutEnabled": False,
+        "jsonEditor": "false",
+        "tryItOutEnabled": "false",
         "operationsSorter": "alpha",
         "docExpansion": "list",
         "displayRequestDuration": True,

@@ -28,6 +28,7 @@ pluggy
 py
 pytz
 PyYAML
+readline
 requests
 sanic
 sanic-ext

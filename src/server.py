@@ -1,8 +1,8 @@
 """
-    Main server process
+Main server process
 
-    File:       server.py
-    Author:     Zoltan Fabian <zoltan.dzooli.fabian@gmail.com>
+File:       server.py
+Author:     Zoltan Fabian <zoltan.dzooli.fabian@gmail.com>
 """
 
 from __future__ import annotations
@@ -40,6 +40,14 @@ def create_app() -> Sanic:
     carbon_connection = None
     WorkerManager.THRESHOLD = 300
 
+    carbon_connection = None
+    try:
+        carbon_connection = socket.create_connection(
+            (AppConfig.CARBON_HOST, AppConfig.CARBON_PORT)
+        )
+    except ConnectionRefusedError:
+        logger.error("Carbon connection is not available.")
+
     app_context = TvTraderContext()
     app_context.carbon_sock = carbon_connection
     app = Sanic(
@@ -50,13 +58,6 @@ def create_app() -> Sanic:
         request_class=CountedRequest,
     )
     app.extend(config=Config(oas=True, health=True, health_endpoint=True, logging=True))
-
-    try:
-        carbon_connection = socket.create_connection(
-            (AppConfig.CARBON_HOST, AppConfig.CARBON_PORT)
-        )
-    except ConnectionRefusedError:
-        logger.error("Carbon connection is not available.")
 
     app.enable_websocket(True)
 
@@ -162,8 +163,10 @@ def create_app() -> Sanic:
         if time_diff > (config.GR_TIMEOUT * 60):
             value = int((config.CARBON_SELL_VALUE + config.CARBON_BUY_VALUE) / 2)
         # Message prepare
-        msg = f'strat.{json_data["name"]}.{json_data["interval"]}.{json_data["symbol"]} \
-            {value} {json_data["timestamp"]}\n'
+        msg = (
+            f"strat.{json_data['name']}.{json_data['interval']}.{json_data['symbol']} \
+            {value} {json_data['timestamp']}\n"
+        )
         await actions_carbon.send_metric(msg)
         return SuccessResponse()
 

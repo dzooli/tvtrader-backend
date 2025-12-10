@@ -1,8 +1,8 @@
 """
-    Application context definition
+Application context definition
 
-    File:       context.py
-    Author:     Zoltan Fabian <zoltan.dzooli.fabian>
+File:       context.py
+Author:     Zoltan Fabian <zoltan.dzooli.fabian>
 """
 
 import socket
@@ -24,11 +24,12 @@ class TvTraderContext(SimpleNamespace):
         return self._carbon_sock
 
     @carbon_sock.setter
-    def carbon_sock(self, sock: socket.socket) -> None:
+    def carbon_sock(self, sock: socket.socket | None) -> None:
         self._carbon_sock = sock
 
     @carbon_sock.deleter
     def carbon_sock(self):
-        self._carbon_sock.shutdown()
-        self._carbon_sock.close()
+        if self._carbon_sock:
+            self._carbon_sock.shutdown(socket.SHUT_RDWR)
+            self._carbon_sock.close()
         del self._carbon_sock

@@ -1,4 +1,4 @@
-pytest==8.2.1
+pytest==9.0.3
 pytest-bdd
 pytest-click
 pytest-cov
